@@ -165,6 +165,7 @@ class DfuTransportSerial(DfuTransport):
         'WriteObject'           : 0x08,
         'Ping'                  : 0x09,
         'Response'              : 0x60,
+        'Abort'                 : 0x0C,
     }
 
     def __init__(self,
@@ -173,7 +174,8 @@ class DfuTransportSerial(DfuTransport):
                  flow_control=DEFAULT_FLOW_CONTROL,
                  timeout=DEFAULT_TIMEOUT,
                  prn=DEFAULT_PRN,
-                 do_ping=DEFAULT_DO_PING):
+                 do_ping=DEFAULT_DO_PING,
+                 serial_number=None):
 
         super().__init__()
         self.com_port = com_port
@@ -185,6 +187,7 @@ class DfuTransportSerial(DfuTransport):
         self.dfu_adapter = None
         self.ping_id     = 0
         self.do_ping     = do_ping
+        self.serial_number = serial_number
 
         self.mtu         = 0
 
@@ -219,6 +222,9 @@ class DfuTransportSerial(DfuTransport):
     def close(self):
         super().close()
         self.serial_port.close()
+
+    def exit_bootloader(self):
+        self.dfu_adapter.send_message([DfuTransportSerial.OP_CODE['Abort']])
 
     def send_init_packet(self, init_packet):
         def try_to_recover():
@@ -312,14 +318,17 @@ class DfuTransportSerial(DfuTransport):
         start = datetime.now()
         while not device and datetime.now() - start < timedelta(seconds=self.timeout):
             time.sleep(0.5)
-            device = lister.get_device(com=self.com_port)
+            if self.serial_number:
+                device = lister.get_device(serial_number=self.serial_number)
+            else:
+                device = lister.get_device(com=self.com_port)
 
         if device:
             device_serial_number = device.serial_number
 
             if not self.__is_device_in_bootloader_mode(device):
                 retry_count = 10
-                wait_time_ms = 500
+                wait_time_ms = 2000
 
                 trigger = DFUTrigger()
                 try:
@@ -331,7 +340,7 @@ class DfuTransportSerial(DfuTransport):
 
                 for checks in range(retry_count):
                     logger.info("Serial: Waiting {} ms for device to enter bootloader {}/{} time"\
-                    .format(500, checks + 1, retry_count))
+                    .format(wait_time_ms, checks + 1, retry_count))
 
                     time.sleep(wait_time_ms / 1000.0)
 
