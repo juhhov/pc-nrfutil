@@ -148,7 +148,7 @@ setup(
                      '../libusb/x86/libusb-1.0.dll', '../libusb/x64/libusb-1.0.dll',
                      '../libusb/x64/libusb-1.0.dylib', '../libusb/LICENSE']
     },
-    python_requires='>=3.7, <3.11',
+    python_requires='>=3.7',
     install_requires=reqs,
     zipfile=None,
     tests_require=[
